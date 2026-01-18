@@ -4,6 +4,7 @@ import '../../domain/repositories/bible_repository.dart';
 
 import '../widgets/selection_modal.dart';
 import '../widgets/reader_settings_modal.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class ChapterViewPage extends StatefulWidget {
   final BibleRepository repository;
@@ -39,14 +40,45 @@ class _ChapterViewPageState extends State<ChapterViewPage> {
   double _lineHeight = 1.5;
   double _letterSpacing = 0.0;
 
+  // TTS & Scrolling
+  final FlutterTts _flutterTts = FlutterTts();
+  final ScrollController _scrollController = ScrollController();
+  final Map<String, GlobalKey> _verseKeysMap = {};
+  bool _isSpeaking = false;
+  bool _isPaused = false;
+  int _currentVerseIndex = -1;
+  List<String> _verseKeys = [];
+
   @override
   void initState() {
     super.initState();
     _bookId = widget.initialBookId;
     _bookName = widget.initialBookName;
     _chapterNum = widget.initialChapterNum;
+    _initTts();
     _loadChapter();
     _loadSettings();
+  }
+
+  Future<void> _initTts() async {
+    await _flutterTts.setLanguage('es-ES');
+    await _flutterTts.setSpeechRate(0.5);
+    await _flutterTts.setVolume(1.0);
+    await _flutterTts.setPitch(1.0);
+
+    _flutterTts.setCompletionHandler(() {
+      if (_isSpeaking && !_isPaused) {
+        _readNextVerse();
+      }
+    });
+
+    _flutterTts.setErrorHandler((msg) {
+      setState(() {
+        _isSpeaking = false;
+        _isPaused = false;
+        _currentVerseIndex = -1;
+      });
+    });
   }
 
   Future<void> _loadSettings() async {
@@ -85,6 +117,7 @@ class _ChapterViewPageState extends State<ChapterViewPage> {
           _verses = results[0];
           _footnotes = results[1];
           _highlights = results[2];
+          _verseKeys = _verses!.keys.toList()..sort(_compareKeys);
           _isLoading = false;
         });
       }
@@ -115,6 +148,11 @@ class _ChapterViewPageState extends State<ChapterViewPage> {
         _chapterNum = result['chapterNum'];
       });
       _loadChapter();
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
   }
 
@@ -155,6 +193,95 @@ class _ChapterViewPageState extends State<ChapterViewPage> {
     setState(() {
       _highlights = newHighlights;
     });
+  }
+
+  Future<void> _speakChapter() async {
+    if (_verses == null || _verses!.isEmpty) return;
+
+    if (_isSpeaking) {
+      if (_isPaused) {
+        // Resume
+        setState(() => _isPaused = false);
+        _readCurrentVerse();
+      } else {
+        // Pause
+        await _flutterTts.stop();
+        setState(() => _isPaused = true);
+      }
+      return;
+    }
+
+    // Start fresh
+    setState(() {
+      _isSpeaking = true;
+      _isPaused = false;
+      _currentVerseIndex = 0;
+    });
+    _readCurrentVerse();
+  }
+
+  Future<void> _readCurrentVerse() async {
+    if (_currentVerseIndex < 0 || _currentVerseIndex >= _verseKeys.length) {
+      setState(() {
+        _isSpeaking = false;
+        _isPaused = false;
+        _currentVerseIndex = -1;
+      });
+      return;
+    }
+
+    final key = _verseKeys[_currentVerseIndex];
+    final text = _verses![key] ?? '';
+
+    // Read book/chapter info only if starting
+    String prefix = '';
+    if (_currentVerseIndex == 0) {
+      prefix = '$_bookName, capítulo $_chapterNum. ';
+    }
+
+    setState(() => _isSpeaking = true);
+    await _flutterTts.speak('$prefix$text');
+    _scrollToCurrentVerse();
+  }
+
+  void _scrollToCurrentVerse() {
+    if (_currentVerseIndex < 0 || _currentVerseIndex >= _verseKeys.length)
+      return;
+
+    final key = _verseKeys[_currentVerseIndex];
+    final globalKey = _verseKeysMap[key];
+    if (globalKey == null) return;
+
+    final context = globalKey.currentContext;
+    if (context == null) return;
+
+    Scrollable.ensureVisible(
+      context,
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOutCubic,
+      alignment: 0.3, // Scroll to roughly 30% from the top
+    );
+  }
+
+  void _readNextVerse() {
+    _currentVerseIndex++;
+    _readCurrentVerse();
+  }
+
+  void _stopReading() {
+    _flutterTts.stop();
+    setState(() {
+      _isSpeaking = false;
+      _isPaused = false;
+      _currentVerseIndex = -1;
+    });
+  }
+
+  @override
+  void dispose() {
+    _stopReading();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _showHighlightMenu(String verseNum) {
@@ -253,10 +380,29 @@ class _ChapterViewPageState extends State<ChapterViewPage> {
             ],
           ),
         ),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: _openSettings,
-          child: const Icon(CupertinoIcons.ellipsis_circle, size: 22),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: _speakChapter,
+              onLongPress: _stopReading,
+              child: Icon(
+                _isSpeaking
+                    ? (_isPaused
+                          ? CupertinoIcons.play_circle
+                          : CupertinoIcons.pause_circle)
+                    : CupertinoIcons.speaker_2,
+                size: 22,
+                color: _isSpeaking ? CupertinoColors.activeBlue : null,
+              ),
+            ),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: _openSettings,
+              child: const Icon(CupertinoIcons.ellipsis_circle, size: 22),
+            ),
+          ],
         ),
       ),
       child: Stack(
@@ -274,11 +420,14 @@ class _ChapterViewPageState extends State<ChapterViewPage> {
                           : 24.0;
 
                       return ListView(
+                        controller: _scrollController,
                         padding: EdgeInsets.only(
                           left: horizontalPadding,
                           right: horizontalPadding,
                           top: 40,
-                          bottom: 60,
+                          bottom:
+                              MediaQuery.of(context).size.height *
+                              0.4, // Extra space
                         ),
                         children: [
                           ..._buildVerses(),
@@ -368,14 +517,31 @@ class _ChapterViewPageState extends State<ChapterViewPage> {
               ? Color(int.parse(highlightHex))
               : null;
 
+          final isReading =
+              _isSpeaking &&
+              _currentVerseIndex != -1 &&
+              _verseKeys[_currentVerseIndex] == key;
+
+          _verseKeysMap[key] ??= GlobalKey();
+
           return GestureDetector(
+            key: _verseKeysMap[key],
             onLongPress: () => _showHighlightMenu(key),
             onTap: () => _showHighlightMenu(key),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(
-                color: highlightColor?.withOpacity(0.35),
-                borderRadius: BorderRadius.circular(3),
+                color: isReading
+                    ? CupertinoColors.activeBlue.withOpacity(0.12)
+                    : highlightColor?.withOpacity(0.35),
+                borderRadius: BorderRadius.circular(4),
+                border: isReading
+                    ? Border.all(
+                        color: CupertinoColors.activeBlue.withOpacity(0.3),
+                        width: 1,
+                      )
+                    : null,
               ),
               child: Text.rich(
                 TextSpan(
@@ -387,8 +553,12 @@ class _ChapterViewPageState extends State<ChapterViewPage> {
                           '$key ',
                           style: TextStyle(
                             fontSize: _fontSize * 0.6,
-                            fontWeight: FontWeight.bold,
-                            color: CupertinoColors.secondaryLabel,
+                            fontWeight: isReading
+                                ? FontWeight.w900
+                                : FontWeight.bold,
+                            color: isReading
+                                ? CupertinoColors.activeBlue
+                                : CupertinoColors.secondaryLabel,
                           ),
                         ),
                       ),
@@ -399,7 +569,10 @@ class _ChapterViewPageState extends State<ChapterViewPage> {
                         fontSize: _fontSize,
                         height: _lineHeight,
                         letterSpacing: _letterSpacing,
-                        color: CupertinoColors.label,
+                        color: isReading
+                            ? CupertinoColors.activeBlue
+                            : CupertinoColors.label,
+                        fontWeight: isReading ? FontWeight.w500 : null,
                         fontFamily: 'Georgia',
                       ),
                     ),
