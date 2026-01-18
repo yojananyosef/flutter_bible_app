@@ -37,8 +37,8 @@ abstract class BibleLocalDataSource {
   Future<Map<String, dynamic>?> getLastRead();
 
   // Reader Settings
-  Future<void> saveReaderSettings(Map<String, double> settings);
-  Future<Map<String, double>?> getReaderSettings();
+  Future<void> saveReaderSettings(Map<String, dynamic> settings);
+  Future<Map<String, dynamic>?> getReaderSettings();
 }
 
 class BibleLocalDataSourceImpl implements BibleLocalDataSource {
@@ -181,16 +181,16 @@ class BibleLocalDataSourceImpl implements BibleLocalDataSource {
   }
 
   @override
-  Future<void> saveReaderSettings(Map<String, double> settings) async {
+  Future<void> saveReaderSettings(Map<String, dynamic> settings) async {
     final box = await Hive.openBox(stateBoxName);
     await box.put('reader_settings', settings);
   }
 
   @override
-  Future<Map<String, double>?> getReaderSettings() async {
+  Future<Map<String, dynamic>?> getReaderSettings() async {
     final box = await Hive.openBox(stateBoxName);
     final data = box.get('reader_settings');
     if (data == null) return null;
-    return Map<String, double>.from(data);
+    return Map<String, dynamic>.from(data);
   }
 }

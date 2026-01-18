@@ -19,6 +19,6 @@ abstract class BibleRepository {
   Future<Map<String, dynamic>?> getLastRead();
 
   // Reader Settings
-  Future<void> saveReaderSettings(Map<String, double> settings);
-  Future<Map<String, double>?> getReaderSettings();
+  Future<void> saveReaderSettings(Map<String, dynamic> settings);
+  Future<Map<String, dynamic>?> getReaderSettings();
 }

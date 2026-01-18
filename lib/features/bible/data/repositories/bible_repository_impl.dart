@@ -135,12 +135,12 @@ class BibleRepositoryImpl implements BibleRepository {
   }
 
   @override
-  Future<void> saveReaderSettings(Map<String, double> settings) {
+  Future<void> saveReaderSettings(Map<String, dynamic> settings) {
     return _localDataSource.saveReaderSettings(settings);
   }
 
   @override
-  Future<Map<String, double>?> getReaderSettings() {
+  Future<Map<String, dynamic>?> getReaderSettings() {
     return _localDataSource.getReaderSettings();
   }
 }
