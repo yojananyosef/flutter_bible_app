@@ -5,6 +5,7 @@ import '../../domain/repositories/bible_repository.dart';
 import '../widgets/selection_modal.dart';
 import '../widgets/reader_settings_modal.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import '../../domain/entities/book_entity.dart';
 
 class ChapterViewPage extends StatefulWidget {
   final BibleRepository repository;
@@ -157,14 +158,43 @@ class _ChapterViewPageState extends State<ChapterViewPage> {
     }
   }
 
-  Future<void> _goToNextChapter() async {
-    // Basic logic for now: increment chapter.
-    // In a full implementation, we'd check against total chapters
-    // and move to the next book if at the end.
-    setState(() {
-      _chapterNum++;
-    });
-    _loadChapter();
+  Future<void> _goToNextChapter({bool autoPlay = false}) async {
+    final booksMap = await widget.repository.getBooks();
+    final List<BookEntity> allBooks = booksMap.values
+        .expand((list) => list)
+        .toList();
+
+    final currentBookIndex = allBooks.indexWhere((b) => b.id == _bookId);
+    if (currentBookIndex == -1) return;
+
+    final BookEntity currentBook = allBooks[currentBookIndex];
+
+    if (_chapterNum < currentBook.capitulos) {
+      // Next chapter in same book
+      setState(() {
+        _chapterNum++;
+      });
+    } else if (currentBookIndex < allBooks.length - 1) {
+      // First chapter of next book
+      final BookEntity nextBook = allBooks[currentBookIndex + 1];
+      setState(() {
+        _bookId = nextBook.id;
+        _bookName = nextBook.nombre;
+        _chapterNum = 1;
+      });
+    } else {
+      // End of Bible
+      return;
+    }
+
+    await _loadChapter();
+
+    if (autoPlay) {
+      // Small delay to ensure text is loaded
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) _speakChapter();
+      });
+    }
   }
 
   Future<void> _goToPreviousChapter() async {
@@ -172,7 +202,23 @@ class _ChapterViewPageState extends State<ChapterViewPage> {
       setState(() {
         _chapterNum--;
       });
-      _loadChapter();
+      await _loadChapter();
+    } else {
+      final booksMap = await widget.repository.getBooks();
+      final List<BookEntity> allBooks = booksMap.values
+          .expand((list) => list)
+          .toList();
+      final currentBookIndex = allBooks.indexWhere((b) => b.id == _bookId);
+
+      if (currentBookIndex > 0) {
+        final BookEntity prevBook = allBooks[currentBookIndex - 1];
+        setState(() {
+          _bookId = prevBook.id;
+          _bookName = prevBook.nombre;
+          _chapterNum = prevBook.capitulos;
+        });
+        await _loadChapter();
+      }
     }
   }
 
@@ -223,11 +269,14 @@ class _ChapterViewPageState extends State<ChapterViewPage> {
 
   Future<void> _readCurrentVerse() async {
     if (_currentVerseIndex < 0 || _currentVerseIndex >= _verseKeys.length) {
-      setState(() {
-        _isSpeaking = false;
-        _isPaused = false;
-        _currentVerseIndex = -1;
-      });
+      // End reached
+      final wasSpeaking = _isSpeaking && !_isPaused;
+      _stopReading();
+
+      if (wasSpeaking) {
+        // Auto-advance to next chapter
+        _goToNextChapter(autoPlay: true);
+      }
       return;
     }
 
