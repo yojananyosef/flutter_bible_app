@@ -21,12 +21,23 @@ abstract class BibleLocalDataSource {
     String bookId,
     int chapterNum,
   );
+
+  // Highlights
+  Future<void> saveHighlight(
+    String bookId,
+    int chapterNum,
+    String verseNum,
+    String color,
+  );
+  Future<void> removeHighlight(String bookId, int chapterNum, String verseNum);
+  Future<Map<String, String>> getHighlights(String bookId, int chapterNum);
 }
 
 class BibleLocalDataSourceImpl implements BibleLocalDataSource {
   static const String booksBoxName = 'bible_books';
   static const String chaptersBoxName = 'bible_chapters';
   static const String footnotesBoxName = 'bible_footnotes';
+  static const String highlightsBoxName = 'bible_highlights';
 
   @override
   Future<void> cacheBooks(Map<String, List<BookModel>> books) async {
@@ -95,6 +106,46 @@ class BibleLocalDataSourceImpl implements BibleLocalDataSource {
     final box = Hive.box(footnotesBoxName);
     final data = box.get('$bookId-$chapterNum');
     if (data == null) return null;
+    return Map<String, String>.from(data);
+  }
+
+  @override
+  Future<void> saveHighlight(
+    String bookId,
+    int chapterNum,
+    String verseNum,
+    String color,
+  ) async {
+    final box = Hive.box(highlightsBoxName);
+    final Map<String, String> highlights = Map<String, String>.from(
+      box.get('$bookId-$chapterNum') ?? {},
+    );
+    highlights[verseNum] = color;
+    await box.put('$bookId-$chapterNum', highlights);
+  }
+
+  @override
+  Future<void> removeHighlight(
+    String bookId,
+    int chapterNum,
+    String verseNum,
+  ) async {
+    final box = Hive.box(highlightsBoxName);
+    final Map<String, String> highlights = Map<String, String>.from(
+      box.get('$bookId-$chapterNum') ?? {},
+    );
+    highlights.remove(verseNum);
+    await box.put('$bookId-$chapterNum', highlights);
+  }
+
+  @override
+  Future<Map<String, String>> getHighlights(
+    String bookId,
+    int chapterNum,
+  ) async {
+    final box = Hive.box(highlightsBoxName);
+    final data = box.get('$bookId-$chapterNum');
+    if (data == null) return {};
     return Map<String, String>.from(data);
   }
 }

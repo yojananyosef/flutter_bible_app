@@ -17,6 +17,7 @@ void main() async {
       Hive.openBox('bible_books'),
       Hive.openBox('bible_chapters'),
       Hive.openBox('bible_footnotes'),
+      Hive.openBox('bible_highlights'),
     ]);
 
     // Dependency Injection

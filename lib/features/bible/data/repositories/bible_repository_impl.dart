@@ -104,4 +104,23 @@ class BibleRepositoryImpl implements BibleRepository {
       rethrow;
     }
   }
+
+  @override
+  Future<Map<String, String>> getHighlights(String bookId, int chapterNum) {
+    return _localDataSource.getHighlights(bookId, chapterNum);
+  }
+
+  @override
+  Future<void> toggleHighlight(
+    String bookId,
+    int chapterNum,
+    String verseNum, {
+    String? color,
+  }) async {
+    if (color == null) {
+      await _localDataSource.removeHighlight(bookId, chapterNum, verseNum);
+    } else {
+      await _localDataSource.saveHighlight(bookId, chapterNum, verseNum, color);
+    }
+  }
 }
