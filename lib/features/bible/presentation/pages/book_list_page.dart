@@ -44,10 +44,13 @@ class _BookListPageState extends State<BookListPage> {
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: CupertinoColors.systemGroupedBackground,
       child: CustomScrollView(
         slivers: [
-          const CupertinoSliverNavigationBar(largeTitle: Text('La Biblia')),
+          const CupertinoSliverNavigationBar(
+            largeTitle: Text('La Biblia'),
+            backgroundColor: CupertinoColors.systemGroupedBackground,
+          ),
           SliverToBoxAdapter(
             child: _isLoading
                 ? const SizedBox(
@@ -55,7 +58,10 @@ class _BookListPageState extends State<BookListPage> {
                     child: Center(child: CupertinoActivityIndicator()),
                   )
                 : _error != null
-                ? Center(child: Text('Error: $_error'))
+                ? SizedBox(
+                    height: 300,
+                    child: Center(child: Text('Error: $_error')),
+                  )
                 : Column(
                     children: [
                       IosListSection(
@@ -138,10 +144,10 @@ class ChapterListPage extends StatelessWidget {
             onPressed: () => Navigator.of(context).push(
               CupertinoPageRoute(
                 builder: (context) => ChapterViewPage(
-                  bookId: book.id,
-                  bookName: book.nombre,
-                  chapterNum: chapterNum,
                   repository: repository,
+                  initialBookId: book.id,
+                  initialBookName: book.nombre,
+                  initialChapterNum: chapterNum,
                 ),
               ),
             ),

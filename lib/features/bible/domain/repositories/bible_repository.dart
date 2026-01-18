@@ -13,4 +13,12 @@ abstract class BibleRepository {
     String verseNum, {
     String? color,
   });
+
+  // State Persistence
+  Future<void> saveLastRead(String bookId, String bookName, int chapterNum);
+  Future<Map<String, dynamic>?> getLastRead();
+
+  // Reader Settings
+  Future<void> saveReaderSettings(Map<String, double> settings);
+  Future<Map<String, double>?> getReaderSettings();
 }

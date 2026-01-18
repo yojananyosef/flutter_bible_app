@@ -123,4 +123,24 @@ class BibleRepositoryImpl implements BibleRepository {
       await _localDataSource.saveHighlight(bookId, chapterNum, verseNum, color);
     }
   }
+
+  @override
+  Future<void> saveLastRead(String bookId, String bookName, int chapterNum) {
+    return _localDataSource.saveLastRead(bookId, bookName, chapterNum);
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getLastRead() {
+    return _localDataSource.getLastRead();
+  }
+
+  @override
+  Future<void> saveReaderSettings(Map<String, double> settings) {
+    return _localDataSource.saveReaderSettings(settings);
+  }
+
+  @override
+  Future<Map<String, double>?> getReaderSettings() {
+    return _localDataSource.getReaderSettings();
+  }
 }
