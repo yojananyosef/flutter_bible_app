@@ -101,6 +101,7 @@ class _ChapterViewPageState extends State<ChapterViewPage> {
   }
 
   Future<void> _loadChapter() async {
+    _stopReading();
     setState(() => _isLoading = true);
     try {
       final results = await Future.wait([
